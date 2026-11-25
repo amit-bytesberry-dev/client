@@ -1,0 +1,29 @@
+name: Promote Staging to Main
+
+on:
+  push:
+    branches:
+    - staging
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Create or update PR
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh pr create \
+          --base main \
+          --head staging \
+          --title "Release: staging to main" \
+          --body "Automated PR promoting validated staging changes to main." \
+          || gh pr edit staging \
+            --base main \
+            --title "Release: staging to main" \
+            --body "Automated PR promoting validated staging changes to main."

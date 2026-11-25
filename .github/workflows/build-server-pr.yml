@@ -1,0 +1,87 @@
+name: Build Client and Open Server PR
+
+on:
+  push:
+    branches:
+    - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-open-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout client
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build client
+      run: pnpm build
+
+    - name: Checkout server repository
+      env:
+        SERVER_REPO_TOKEN: ${{ secrets.SERVER_REPO_TOKEN }}
+      run: |
+        git clone \
+          https://x-access-token:${SERVER_REPO_TOKEN}@github-company.com/amit-bytesberry-dev/server.git \
+          server
+
+    - name: Copy client build
+      run: |
+        rm -rf server/build
+        mkdir -p server/build
+        cp -a dist/. server/build/
+
+    - name: Commit and push build
+      working-directory: server
+      run: |
+        BRANCH="autonomous-client-build"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git checkout -B "$BRANCH"
+
+        git add build
+
+        if git diff --cached --quiet; then
+          echo "No build changes detected."
+          echo "NO_CHANGES=true" >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        git commit -m "chore: update generated client build"
+        git push origin "$BRANCH" --force
+
+        echo "NO_CHANGES=false" >> "$GITHUB_ENV"
+
+    - name: Create or update PR
+      working-directory: server
+      env:
+        GH_TOKEN: ${{ secrets.SERVER_REPO_TOKEN }}
+      run: |
+        gh pr create \
+          --repo amit-bytesberry-dev/server \
+          --base main \
+          --head autonomous-client-build \
+          --title "chore: update generated client build" \
+          --body "Automated PR containing the production build from client." \
+          || gh pr edit autonomous-client-build \
+            --repo amit-bytesberry-dev/server \
+            --title "chore: update generated client build" \
+            --body "Automated PR containing the latest production build from client."

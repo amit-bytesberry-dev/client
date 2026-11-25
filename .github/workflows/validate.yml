@@ -1,0 +1,43 @@
+name: Validate Client
+
+on:
+  pull_request:
+    branches:
+    - development
+    - staging
+    - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout client
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Lint
+      run: pnpm lint
+
+    # Add this step only if your package.json has a type-check script.
+    # - name: Type check
+    #   run: pnpm typecheck
+
+    - name: Build
+      run: pnpm build
